@@ -7,13 +7,15 @@ const DEFAULT_PIPE_NAME = 'default';
 export const plumber = {
     websocketURL: 'wss://plumberlib.com/',
     websocket: null,
+    pipes: new Map<string, Pipe<any>>(),
     createPipe: (name: string = DEFAULT_PIPE_NAME, type: PipeType = DEFAULT_PIPE_TYPE): Pipe<any> => {
         if(!plumber.websocket) { plumber.websocket = new WebSocket(plumber.websocketURL); }
-        return new Pipe(name, plumber.websocket);
+        const pipe = new Pipe<any>(name, plumber.websocket);
+        plumber.pipes.set(name, pipe);
+        return pipe;
     },
     getPipe: (name: string = DEFAULT_PIPE_NAME): Pipe<any> => {
-        if(!plumber.websocket) { plumber.websocket = new WebSocket(plumber.websocketURL); }
-        return new Pipe(name, plumber.websocket);
+        return plumber.pipes.get(name);
     },
     getOrCreatePipe: (name: string = DEFAULT_PIPE_NAME, type: PipeType = DEFAULT_PIPE_TYPE): Pipe<any> => {
         if (plumber.hasPipe(name)) {
@@ -23,7 +25,7 @@ export const plumber = {
         }
     },
     hasPipe: (name: string): boolean => {
-        return false;
+        return plumber.pipes.has(name);
     }
 }
 
@@ -45,11 +47,29 @@ interface ClosePipeOperation extends PipeOperation {
 }
 
 enum PipeState {
-    CONNECTING = WebSocket.CONNECTING,
-    OPEN       = WebSocket.OPEN,
-    CLOSED     = WebSocket.CLOSED,
-    CLOSING    = WebSocket.CLOSING
+    CONNECTING = 0, //WebSocket.CONNECTING,
+    OPEN       = 1, //WebSocket.OPEN,
+    CLOSING    = 2, //WebSocket.CLOSING,
+    CLOSED     = 3 //WebSocket.CLOSED,
 };
+
+export enum PipeActionType { JOIN, LEAVE, MESSAGE }
+export interface PipeAction {
+    t: PipeActionType
+}
+export interface JoinPipeAction {
+    t: PipeActionType.JOIN,
+    p: string
+}
+export interface LeavePipeAction {
+    t: PipeActionType.LEAVE,
+    p: string
+}
+export interface MessagePipeAction<E> {
+    t: PipeActionType.MESSAGE,
+    p: string,
+    m: E
+}
 
 class Pipe<T> {
     private subscribers: Subscriber<T>[] = [];
@@ -59,6 +79,7 @@ class Pipe<T> {
     constructor(private name: string, private websocket: WebSocket) {
         this.websocket.addEventListener('open', () => {
             this.state = PipeState.OPEN;
+            this.websocket.send(JSON.stringify({ t: PipeActionType.JOIN, p: this.name } as JoinPipeAction));
             this.runOperationQueue();
         });
         this.websocket.addEventListener('close', () => {
@@ -66,10 +87,13 @@ class Pipe<T> {
         });
         this.websocket.addEventListener('message', (event) => {
             const { data } = event;
-            const parsedData = JSON.parse(data) as T;
-            this.subscribers.forEach((subscriber) => {
-                subscriber(parsedData);
-            });
+            const parsedData = JSON.parse(data) as MessagePipeAction<T>;
+            if(parsedData.t === PipeActionType.MESSAGE && parsedData.p === this.name) {
+                const payload = parsedData.m;
+                this.subscribers.forEach((subscriber) => {
+                    subscriber(payload);
+                });
+            }
         });
     }
 
@@ -99,7 +123,9 @@ class Pipe<T> {
         const { type } = op;
         if(type === PipeOperationType.SEND) {
             const { data } = op as SendPipeOperation<T>;
-            return this.websocket.send(JSON.stringify(data));
+            return this.websocket.send(JSON.stringify({
+                t: PipeActionType.MESSAGE, p: this.name, m: data
+            } as MessagePipeAction<T>));
         } else if (type === PipeOperationType.CLOSE) {
             const {} = op as ClosePipeOperation;
             this.state = PipeState.CLOSING;
@@ -117,6 +143,7 @@ class Pipe<T> {
 
     public close(): void {
         const op: ClosePipeOperation = { type: PipeOperationType.CLOSE };
+        this.websocket.send(JSON.stringify({ t: PipeActionType.LEAVE, p: this.name } as LeavePipeAction));
         this.enqueueOperation(op);
         if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
     }
