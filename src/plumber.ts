@@ -6,11 +6,14 @@ const DEFAULT_PIPE_NAME = 'default';
 
 export const plumber = {
     websocketURL: 'wss://plumberlib.com/',
+    websocket: null,
     createPipe: (name: string = DEFAULT_PIPE_NAME, type: PipeType = DEFAULT_PIPE_TYPE): Pipe<any> => {
-        return new Pipe(name, plumber.websocketURL);
+        if(!plumber.websocket) { plumber.websocket = new WebSocket(plumber.websocketURL); }
+        return new Pipe(name, plumber.websocket);
     },
     getPipe: (name: string = DEFAULT_PIPE_NAME): Pipe<any> => {
-        return new Pipe(name, plumber.websocketURL);
+        if(!plumber.websocket) { plumber.websocket = new WebSocket(plumber.websocketURL); }
+        return new Pipe(name, plumber.websocket);
     },
     getOrCreatePipe: (name: string = DEFAULT_PIPE_NAME, type: PipeType = DEFAULT_PIPE_TYPE): Pipe<any> => {
         if (plumber.hasPipe(name)) {
@@ -49,13 +52,11 @@ enum PipeState {
 };
 
 class Pipe<T> {
-    private websocket: WebSocket;
     private subscribers: Subscriber<T>[] = [];
     private operationQueue: PipeOperation[] = [];
     private state: PipeState = PipeState.CONNECTING;
 
-    constructor(private name: string, private serverURL: string) {
-        this.websocket = new WebSocket(serverURL);
+    constructor(private name: string, private websocket: WebSocket) {
         this.websocket.addEventListener('open', () => {
             this.state = PipeState.OPEN;
             this.runOperationQueue();
