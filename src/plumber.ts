@@ -77,9 +77,12 @@ class Pipe<T> {
     private state: PipeState = PipeState.CONNECTING;
 
     constructor(private name: string, private websocket: WebSocket) {
+        if(this.websocket.readyState === WebSocket.OPEN) {
+            this.joinPipe();
+        }
         this.websocket.addEventListener('open', () => {
             this.state = PipeState.OPEN;
-            this.websocket.send(JSON.stringify({ t: PipeActionType.JOIN, p: this.name } as JoinPipeAction));
+            this.joinPipe();
             this.runOperationQueue();
         });
         this.websocket.addEventListener('close', () => {
@@ -95,6 +98,10 @@ class Pipe<T> {
                 });
             }
         });
+    }
+
+    private joinPipe(): void {
+        this.websocket.send(JSON.stringify({ t: PipeActionType.JOIN, p: this.name } as JoinPipeAction));
     }
 
     public subscribe(subscriber: Subscriber<T>): void {
