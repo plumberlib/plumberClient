@@ -50,6 +50,11 @@ interface JoinPipeOperation extends PipeOperation {
     channel: string
 }
 
+interface MethodInvocation {
+    method: string,
+    args: any[]
+}
+
 export class PipeAgent extends Subscribable<any> {
     private operationQueue: PipeOperation[] = [];
     private state: PipeState = PipeState.CONNECTING;
@@ -122,8 +127,11 @@ export class PipeAgent extends Subscribable<any> {
         }
     }
 
-    public send(data: any): void {
-        const op: SendPipeOperation<any> = { type: PipeOperationType.SEND, data };
+    public do(method: string, ...args: any[]) {
+        const op: SendPipeOperation<MethodInvocation> = {
+            type: PipeOperationType.SEND,
+            data: { method, args }
+        };
         this.enqueueOperation(op);
         if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
     }

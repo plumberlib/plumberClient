@@ -5,8 +5,6 @@ export enum PipeType {
     VALUE = 'value'
 };
 
-
-
 export class Pipe<T> extends Subscribable<T> {
     // private subscribers: Subscriber<T>[] = [];
     private agent: PipeAgent;
@@ -22,8 +20,8 @@ export class Pipe<T> extends Subscribable<T> {
         this.agent.join(this.name);
     }
 
-    public send(data: T): void {
-        this.agent.send(data);
+    public do(opName: string, ...args: any[]) {
+        this.agent.do(opName, ...args);
     }
 
     public close(): void {
