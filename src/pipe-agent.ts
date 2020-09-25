@@ -1,5 +1,6 @@
 import { Subscribable } from "./subscribable";
-import { Pipe } from "./pipe";
+import { ClientAddonMethod, Pipe } from "./pipe";
+import { uuid } from "./util";
 
 export const pipeActionTypeKey = 't';
 export const pipeNameKey       = 'p';
@@ -50,14 +51,21 @@ interface JoinPipeOperation extends PipeOperation {
     channel: string
 }
 
-interface MethodInvocation {
+export const GET_METHODS_COMMAND = '__getmethods__';
+export interface SpecialMethodInvocation {
+    specialMethod: string,
+    invocationID: string
+}
+export interface MethodInvocation {
     method: string,
-    args: any[]
+    args: any[],
+    invocationID: string
 }
 
 export class PipeAgent extends Subscribable<any> {
     private operationQueue: PipeOperation[] = [];
     private state: PipeState = PipeState.CONNECTING;
+    private awaitingResponse: Map<string, (response: any) => void> = new Map();
     constructor(private websocket: WebSocket, private pipe: Pipe<any>) {
         super();
         if(this.websocket.readyState === WebSocket.OPEN) {
@@ -79,9 +87,21 @@ export class PipeAgent extends Subscribable<any> {
             if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
                 parsedData[pipeNameKey] === this.pipe.getName()) {
                 const payload = parsedData[pipeMessageKey];
+
                 this.forEachSubscriber((subscriber) => {
                     subscriber(payload);
                 });
+            } else if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
+                parsedData[pipeNameKey] === 'invocationResponse') {
+                const payload = parsedData[pipeMessageKey];
+
+                const responseToInvocation = payload['responseToInvocation'];
+                if(this.awaitingResponse.has(responseToInvocation)) {
+                    const func = this.awaitingResponse.get(responseToInvocation);
+                    const response = payload['response'];
+                    func(response);
+                    this.awaitingResponse.delete(responseToInvocation);
+                }
             }
         });
     }
@@ -127,13 +147,34 @@ export class PipeAgent extends Subscribable<any> {
         }
     }
 
-    public do(method: string, ...args: any[]) {
+    public do(method: string, ...args: any[]): Promise<void> {
+        const invocationID = uuid();
         const op: SendPipeOperation<MethodInvocation> = {
             type: PipeOperationType.SEND,
-            data: { method, args }
+            data: { method, args, invocationID }
         };
-        this.enqueueOperation(op);
-        if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
+        return new Promise((resolve, reject) => {
+            this.awaitingResponse.set(invocationID, (response) => {
+                resolve(response);
+            });
+            this.enqueueOperation(op);
+            if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
+        });
+    }
+
+    public getMethods(): Promise<ClientAddonMethod> {
+        const invocationID = uuid();
+        const op: SendPipeOperation<SpecialMethodInvocation> = {
+            type: PipeOperationType.SEND,
+            data: { specialMethod: GET_METHODS_COMMAND, invocationID }
+        };
+        return new Promise((resolve, reject) => {
+            this.awaitingResponse.set(invocationID, (response) => {
+                resolve(response);
+            });
+            this.enqueueOperation(op);
+            if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
+        });
     }
 
     public close(): void {
