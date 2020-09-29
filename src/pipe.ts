@@ -1,3 +1,4 @@
+import { Doc } from "sharedb/lib/client";
 import { PipeAgent } from "./pipe-agent";
 import { Subscribable } from "./subscribable";
 
@@ -13,9 +14,9 @@ export enum PipeType {
 
 export class Pipe<T> extends Subscribable<T> {
     // private subscribers: Subscriber<T>[] = [];
-    private agent: PipeAgent;
+    private readonly agent: PipeAgent;
 
-    constructor(private name: string, websocket: WebSocket) {
+    constructor(private readonly name: string, websocket: WebSocket) {
         super();
         this.agent = new PipeAgent(websocket, this);
         this.agent.subscribe((data: T) => {
@@ -32,6 +33,10 @@ export class Pipe<T> extends Subscribable<T> {
 
     public do(opName: string, ...args: any[]): Promise<any> {
         return this.agent.do(opName, ...args);
+    }
+
+    public getDoc(documentID: string): Doc {
+        return this.agent.getShareDBDoc(documentID);
     }
 
     public close(): void {

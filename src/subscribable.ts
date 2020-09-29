@@ -1,6 +1,6 @@
 type Subscriber<T> = (data: T) => any;
 export class Subscribable<T> {
-    private subscribers: Subscriber<T>[] = [];
+    private readonly subscribers: Subscriber<T>[] = [];
     constructor() {
 
     }

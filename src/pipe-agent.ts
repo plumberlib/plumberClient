@@ -1,6 +1,9 @@
 import { Subscribable } from "./subscribable";
 import { ClientAddonMethod, Pipe } from "./pipe";
 import { uuid } from "./util";
+import { Mocket } from "./mocket";
+import { Connection, Doc } from 'sharedb/lib/client';
+import sharedb = require("sharedb");
 
 export const pipeActionTypeKey = 't';
 export const pipeNameKey       = 'p';
@@ -34,7 +37,8 @@ enum PipeState {
 enum PipeOperationType {
     SEND = 'send',
     CLOSE = 'close',
-    JOIN = 'join'
+    JOIN = 'join',
+    SDB = 'sdb',
 };
 interface PipeOperation {
     type: PipeOperationType
@@ -61,13 +65,29 @@ export interface MethodInvocation {
     args: any[],
     invocationID: string
 }
+export interface ShareDBOp {
+    method: 'sharedb',
+    args: any[]
+}
 
 export class PipeAgent extends Subscribable<any> {
-    private operationQueue: PipeOperation[] = [];
     private state: PipeState = PipeState.CONNECTING;
-    private awaitingResponse: Map<string, (response: any) => void> = new Map();
-    constructor(private websocket: WebSocket, private pipe: Pipe<any>) {
+    private readonly operationQueue: PipeOperation[] = [];
+    private readonly awaitingResponse: Map<string, (response: any) => void> = new Map();
+    private readonly shareDBMocket: Mocket;
+    private readonly sdbConnection: Connection;
+    constructor(private readonly websocket: WebSocket, private readonly pipe: Pipe<any>) {
         super();
+        this.shareDBMocket = new Mocket(this.websocket, (dataString: string) => {
+            const op: SendPipeOperation<ShareDBOp> = {
+                type: PipeOperationType.SEND,
+                data: { method: 'sharedb', args: [JSON.parse(dataString)] }
+            };
+            this.enqueueOperation(op);
+            if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
+        });
+        this.sdbConnection = new Connection(this.shareDBMocket as any);
+
         if(this.websocket.readyState === WebSocket.OPEN) {
             this.state = PipeState.OPEN;
             this.runOperationQueue();
@@ -88,9 +108,14 @@ export class PipeAgent extends Subscribable<any> {
                 parsedData[pipeNameKey] === this.pipe.getName()) {
                 const payload = parsedData[pipeMessageKey];
 
-                this.forEachSubscriber((subscriber) => {
-                    subscriber(payload);
-                });
+                if(payload.method === 'sharedb') {
+                    const { args } = payload;
+                    this.shareDBMocket.pushData(args[0]);
+                } else {
+                    this.forEachSubscriber((subscriber) => {
+                        subscriber(payload);
+                    });
+                }
             } else if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
                 parsedData[pipeNameKey] === 'invocationResponse') {
                 const payload = parsedData[pipeMessageKey];
@@ -104,6 +129,10 @@ export class PipeAgent extends Subscribable<any> {
                 }
             }
         });
+    }
+
+    public getShareDBDoc(documentID: string): Doc {
+        return this.sdbConnection.get(this.pipe.getName(), documentID);
     }
 
     public join(channel: string): void {
