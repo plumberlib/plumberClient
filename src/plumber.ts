@@ -3,7 +3,7 @@ import { Pipe, PipeType } from './pipe';
 const DEFAULT_PIPE_TYPE = PipeType.VALUE;
 const DEFAULT_PIPE_NAME = 'default';
 
-export const plumber = {
+const plumber = {
     websocketURL: 'wss://plumberlib.com/',
     websocket: null,
     pipes: new Map<string, Pipe<any>>(),
@@ -26,4 +26,6 @@ export const plumber = {
     hasPipe: (name: string): boolean => {
         return plumber.pipes.has(name);
     }
-}
+};
+
+export default plumber;

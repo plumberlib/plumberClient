@@ -1,7 +1,7 @@
 const path = require('path');
 
 module.exports = [{
-    entry: './src/main.ts',
+    entry: './src/plumber.ts',
     mode: 'production',
     module: {
         rules: [{
@@ -15,6 +15,9 @@ module.exports = [{
     },
     output: {
         path: path.resolve(__dirname, 'built'),
-        filename: 'plumber.js'
+        filename: 'plumber.js',
+        library: 'plumber',
+        libraryTarget: 'umd',
+        libraryExport: 'default'
     }
 }];
