@@ -4,6 +4,7 @@ const DEFAULT_PIPE_TYPE = PipeType.VALUE;
 const DEFAULT_PIPE_NAME = 'default';
 
 const plumber = {
+    apiKey: false,
     websocketURL: 'wss://plumberlib.com/',
     websocket: null,
     pipes: new Map<string, Pipe<any>>(),

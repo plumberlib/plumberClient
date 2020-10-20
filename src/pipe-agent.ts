@@ -65,6 +65,10 @@ export interface MethodInvocation {
     args: any[],
     invocationID: string
 }
+export interface AuthenticateAPIKeyInvocation {
+    method: 'authenticate-api-key',
+    args: [string]
+}
 export interface ShareDBOp {
     method: 'sharedb',
     args: any[]
