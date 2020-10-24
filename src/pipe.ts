@@ -1,5 +1,6 @@
 import { Doc } from "sharedb/lib/client";
 import { PipeAgent } from "./pipe-agent";
+import { Plumber } from "./plumber";
 import { Subscribable } from "./subscribable";
 
 export interface ClientAddonMethod {
@@ -7,18 +8,13 @@ export interface ClientAddonMethod {
     description?: string,
 }
 
-
-export enum PipeType {
-    VALUE = 'value'
-};
-
 export class Pipe<T> extends Subscribable<T> {
     // private subscribers: Subscriber<T>[] = [];
     private readonly agent: PipeAgent;
 
-    constructor(private readonly name: string, websocket: WebSocket) {
+    constructor(private readonly name: string, plumber: Plumber) {
         super();
-        this.agent = new PipeAgent(websocket, this);
+        this.agent = new PipeAgent(plumber, this);
         this.agent.subscribe((data: T) => {
             this.forEachSubscriber((sub) => {
                 sub(data);

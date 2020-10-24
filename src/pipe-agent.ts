@@ -4,6 +4,7 @@ import { uuid } from "./util";
 import { Mocket } from "./mocket";
 import { Connection, Doc } from 'sharedb/lib/client';
 import sharedb = require("sharedb");
+import { Plumber } from "./plumber";
 
 export const pipeActionTypeKey = 't';
 export const pipeNameKey       = 'p';
@@ -80,8 +81,10 @@ export class PipeAgent extends Subscribable<any> {
     private readonly awaitingResponse: Map<string, (response: any) => void> = new Map();
     private readonly shareDBMocket: Mocket;
     private readonly sdbConnection: Connection;
-    constructor(private readonly websocket: WebSocket, private readonly pipe: Pipe<any>) {
+    private readonly websocket: WebSocket;
+    constructor(private readonly plumber: Plumber, private readonly pipe: Pipe<any>) {
         super();
+        this.websocket = this.plumber.websocket;
         this.shareDBMocket = new Mocket(this.websocket, (dataString: string) => {
             const op: SendPipeOperation<ShareDBOp> = {
                 type: PipeOperationType.SEND,
