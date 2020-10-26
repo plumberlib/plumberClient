@@ -81,11 +81,11 @@ export class PipeAgent extends Subscribable<any> {
     private readonly awaitingResponse: Map<string, (response: any) => void> = new Map();
     private readonly shareDBMocket: Mocket;
     private readonly sdbConnection: Connection;
-    private readonly websocket: WebSocket;
+    private websocket: WebSocket;
     constructor(private readonly plumber: Plumber, private readonly pipe: Pipe<any>) {
         super();
-        this.websocket = this.plumber.websocket;
-        this.shareDBMocket = new Mocket(this.websocket, (dataString: string) => {
+
+        this.shareDBMocket = new Mocket(this.plumber.websocket, (dataString: string) => {
             const op: SendPipeOperation<ShareDBOp> = {
                 type: PipeOperationType.SEND,
                 data: { method: 'sharedb', args: [JSON.parse(dataString)] }
@@ -94,48 +94,58 @@ export class PipeAgent extends Subscribable<any> {
             if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
         });
         this.sdbConnection = new Connection(this.shareDBMocket as any);
+    }
+    public updateWebsocket(): void {
+        this.setWebsocket(this.plumber.websocket);
+    }
 
-        if(this.websocket.readyState === WebSocket.OPEN) {
-            this.state = PipeState.OPEN;
-            this.runOperationQueue();
-        }
-        this.websocket.addEventListener('open', () => {
-            this.state = PipeState.OPEN;
-            this.runOperationQueue();
-        });
+    private setWebsocket(ws: WebSocket): void {
+        this.websocket = ws;
 
-        this.websocket.addEventListener('close', () => {
-            this.state = PipeState.CLOSED;
-        });
-
-        this.websocket.addEventListener('message', (event) => {
-            const { data } = event;
-            const parsedData = JSON.parse(data) as MessagePipeAction<any>;
-            if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
-                parsedData[pipeNameKey] === this.pipe.getName()) {
-                const payload = parsedData[pipeMessageKey];
-
-                if(payload.method === 'sharedb') {
-                    const { args } = payload;
-                    this.shareDBMocket.pushData(args[0]);
-                } else {
-                    this.forEachSubscriber((subscriber) => {
-                        subscriber(payload);
-                    });
-                }
-            } else if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
-                parsedData[pipeNameKey] === 'invocationResponse') {
-                const payload = parsedData[pipeMessageKey];
-
-                const responseToInvocation = payload['responseToInvocation'];
-                if(this.awaitingResponse.has(responseToInvocation)) {
-                    const func = this.awaitingResponse.get(responseToInvocation);
-                    const response = payload['response'];
-                    func(response);
-                    this.awaitingResponse.delete(responseToInvocation);
-                }
+        if(this.websocket) {
+            if(this.websocket.readyState === WebSocket.OPEN) {
+                this.state = PipeState.OPEN;
+                this.runOperationQueue();
             }
-        });
+            this.websocket.addEventListener('open', () => {
+                this.state = PipeState.OPEN;
+                this.runOperationQueue();
+            });
+
+            this.websocket.addEventListener('close', () => {
+                this.state = PipeState.CLOSED;
+            });
+
+            this.websocket.addEventListener('message', (event) => {
+                const { data } = event;
+                const parsedData = JSON.parse(data) as MessagePipeAction<any>;
+                if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
+                    parsedData[pipeNameKey] === this.pipe.getName()) {
+                    const payload = parsedData[pipeMessageKey];
+
+                    if(payload.method === 'sharedb') {
+                        const { args } = payload;
+                        this.shareDBMocket.pushData(args[0]);
+                    } else {
+                        this.forEachSubscriber((subscriber) => {
+                            subscriber(payload);
+                        });
+                    }
+                } else if(parsedData[pipeActionTypeKey] === PipeActionType.MESSAGE &&
+                    parsedData[pipeNameKey] === 'invocationResponse') {
+                    const payload = parsedData[pipeMessageKey];
+
+                    const responseToInvocation = payload['responseToInvocation'];
+                    if(this.awaitingResponse.has(responseToInvocation)) {
+                        const func = this.awaitingResponse.get(responseToInvocation);
+                        const response = payload['response'];
+                        func(response);
+                        this.awaitingResponse.delete(responseToInvocation);
+                    }
+                }
+            });
+        }
+        this.shareDBMocket.setWebsocket(this.websocket);
     }
 
     public getShareDBDoc(documentID: string): Doc {

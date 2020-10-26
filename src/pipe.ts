@@ -42,4 +42,8 @@ export class Pipe<T> extends Subscribable<T> {
     public getName() {
         return this.name;
     }
+
+    public updateWebsocket(): void {
+        this.agent.updateWebsocket();
+    }
 }

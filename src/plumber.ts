@@ -29,19 +29,39 @@ const plumber: Plumber = {
             plumber._configuration[key] = value;
         });
 
+        if(configOptions.hasOwnProperty('websocketURL')) {
+            if(plumber.websocket) {
+                plumber.websocket.close();
+            }
+            plumber.websocket = new WebSocket(plumber._configuration.websocketURL);
+            plumber.pipes.forEach((pipe: Pipe<any>) => {
+                pipe.updateWebsocket();
+            });
+        }
         if(configOptions.hasOwnProperty('apiKey')) {
-            const adminPipe = plumber.getPipe(ADMIN_PIPE_NAME);
-            adminPipe.do('set-api-key', this._configuration.apiKey);
-            console.log('set api key');
+            if(plumber.pipes.has(ADMIN_PIPE_NAME)) {
+                const adminPipe = plumber.getPipe(ADMIN_PIPE_NAME);
+                adminPipe.do('set-api-key', plumber._configuration.apiKey);
+                // console.log('set api key');
+            }
         }
     },
     websocket: null,
     pipes: new Map<string, Pipe<any>>(),
     createPipe: (name: string = DEFAULT_PIPE_NAME): Pipe<any> => {
-        if(name === ADMIN_PIPE_NAME) {
-            throw new Error(`${name} is a reserved pipe name`);
+        if(name === ADMIN_PIPE_NAME) { throw new Error(`${name} is a reserved pipe name`); }
+        if(!plumber.websocket) {
+            plumber.websocket = new WebSocket(plumber._configuration.websocketURL);
+            plumber.pipes.forEach((pipe: Pipe<any>) => {
+                pipe.updateWebsocket();
+            });
         }
-        if(!plumber.websocket) { plumber.websocket = new WebSocket(plumber._configuration.websocketURL); }
+
+        if(!plumber.pipes.has(ADMIN_PIPE_NAME)) {
+            const adminPipe = new Pipe<any>(ADMIN_PIPE_NAME, plumber);
+            plumber.pipes.set(ADMIN_PIPE_NAME, new Pipe<any>(ADMIN_PIPE_NAME, plumber));
+            adminPipe.do('set-api-key', plumber._configuration.apiKey);
+        }
         const pipe = new Pipe<any>(name, plumber);
         plumber.pipes.set(name, pipe);
         return pipe;
@@ -60,6 +80,5 @@ const plumber: Plumber = {
         return plumber.pipes.has(name);
     }
 };
-plumber.pipes.set(ADMIN_PIPE_NAME, new Pipe<any>(ADMIN_PIPE_NAME, plumber));
 
 export default plumber;

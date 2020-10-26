@@ -4,6 +4,7 @@
     "description": "",
     "main": "built/plumber.js",
     "scripts": {
+        "start": "npx webpack --watch",
         "build": "npx webpack",
         "watch": "npx webpack --watch"
     },

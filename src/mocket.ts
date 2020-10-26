@@ -12,13 +12,25 @@ export class Mocket {
         if(this.onmessage) { this.onmessage(ev); }
     };
 
+    private ws: WebSocket;
 
-    public constructor(private readonly ws: WebSocket, private readonly doSend: (data: string) => any) {
-        this.readyState = this.ws.readyState;
-        this.ws.addEventListener('open', this.$onOpen);
-        this.ws.addEventListener('close', this.$onClose);
-        this.ws.addEventListener('error', this.$onError);
-        // this.ws.addEventListener('message', this.$onMessage);
+
+    public constructor(ws: WebSocket, private readonly doSend: (data: string) => any) {
+        this.setWebsocket(ws);
+    }
+
+    public setWebsocket(ws: WebSocket): void {
+        if(this.ws) {
+            this.removeListeners();
+        }
+        this.ws = ws;
+        if(this.ws) {
+            this.readyState = this.ws.readyState;
+            this.ws.addEventListener('open', this.$onOpen);
+            this.ws.addEventListener('close', this.$onClose);
+            this.ws.addEventListener('error', this.$onError);
+            // this.ws.addEventListener('message', this.$onMessage);
+        }
     }
 
     public readyState: number;
@@ -40,10 +52,14 @@ export class Mocket {
         this.destroy();
     }
 
-    public destroy(): void {
+    private removeListeners(): void {
         this.ws.removeEventListener('open', this.$onOpen);
         this.ws.removeEventListener('close', this.$onClose);
         this.ws.removeEventListener('error', this.$onError);
         this.ws.removeEventListener('message', this.$onMessage);
+    }
+
+    private destroy(): void {
+        this.removeListeners();
     }
 }
