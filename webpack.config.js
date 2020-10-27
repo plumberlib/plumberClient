@@ -3,6 +3,7 @@ const path = require('path');
 module.exports = [{
     entry: './src/plumber.ts',
     mode: 'production',
+    devtool: "source-map",
     module: {
         rules: [{
             test: /\.tsx?$/,

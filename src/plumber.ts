@@ -1,7 +1,7 @@
 import { Pipe } from './pipe';
 
 const DEFAULT_PIPE_NAME = 'default';
-export const ADMIN_PIPE_NAME = '<<admin>>'
+export const ADMIN_PIPE_NAME = '@';
 
 export interface PlumberConfig {
     apiKey?: string|boolean,
@@ -41,8 +41,7 @@ const plumber: Plumber = {
         if(configOptions.hasOwnProperty('apiKey')) {
             if(plumber.pipes.has(ADMIN_PIPE_NAME)) {
                 const adminPipe = plumber.getPipe(ADMIN_PIPE_NAME);
-                adminPipe.do('set-api-key', plumber._configuration.apiKey);
-                // console.log('set api key');
+                adminPipe.getAgent().setAPIKey(plumber._configuration.apiKey as string);
             }
         }
     },
@@ -60,7 +59,7 @@ const plumber: Plumber = {
         if(!plumber.pipes.has(ADMIN_PIPE_NAME)) {
             const adminPipe = new Pipe<any>(ADMIN_PIPE_NAME, plumber);
             plumber.pipes.set(ADMIN_PIPE_NAME, new Pipe<any>(ADMIN_PIPE_NAME, plumber));
-            adminPipe.do('set-api-key', plumber._configuration.apiKey);
+            adminPipe.getAgent().setAPIKey(plumber._configuration.apiKey as string);
         }
         const pipe = new Pipe<any>(name, plumber);
         plumber.pipes.set(name, pipe);

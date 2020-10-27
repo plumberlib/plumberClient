@@ -57,9 +57,12 @@ interface JoinPipeOperation extends PipeOperation {
 }
 
 export const GET_METHODS_COMMAND = '__getmethods__';
+export const SET_API_KEY_COMMAND = '__setapikey__';
+
 export interface SpecialMethodInvocation {
     specialMethod: string,
-    invocationID: string
+    invocationID: string,
+    args: any[],
 }
 export interface MethodInvocation {
     method: string,
@@ -85,7 +88,8 @@ export class PipeAgent extends Subscribable<any> {
     constructor(private readonly plumber: Plumber, private readonly pipe: Pipe<any>) {
         super();
 
-        this.shareDBMocket = new Mocket(this.plumber.websocket, (dataString: string) => {
+        this.updateWebsocket();
+        this.shareDBMocket = new Mocket(this.websocket, (dataString: string) => {
             const op: SendPipeOperation<ShareDBOp> = {
                 type: PipeOperationType.SEND,
                 data: { method: 'sharedb', args: [JSON.parse(dataString)] }
@@ -145,7 +149,10 @@ export class PipeAgent extends Subscribable<any> {
                 }
             });
         }
-        this.shareDBMocket.setWebsocket(this.websocket);
+
+        if(this.shareDBMocket) { // the first time we run this (fromm the constructor), the mocket isn't set. TODO: fix
+            this.shareDBMocket.setWebsocket(this.websocket);
+        }
     }
 
     public getShareDBDoc(documentID: string): Doc {
@@ -172,22 +179,32 @@ export class PipeAgent extends Subscribable<any> {
     private async executeOperation(op: PipeOperation): Promise<void> {
         const { type } = op;
         if(type === PipeOperationType.SEND) {
-            const { data } = op as SendPipeOperation<any>;
-            return this.websocket.send(JSON.stringify({
-                [pipeActionTypeKey]: PipeActionType.MESSAGE,
-                [pipeNameKey]: this.pipe.getName(),
-                [pipeMessageKey]: data
-            } as MessagePipeAction<any>));
+            if(this.websocket) {
+                const { data } = op as SendPipeOperation<any>;
+                return this.websocket.send(JSON.stringify({
+                    [pipeActionTypeKey]: PipeActionType.MESSAGE,
+                    [pipeNameKey]: this.pipe.getName(),
+                    [pipeMessageKey]: data
+                } as MessagePipeAction<any>));
+            }
         } else if (type === PipeOperationType.CLOSE) {
-            const {} = op as ClosePipeOperation;
-            this.state = PipeState.CLOSING;
-            return this.websocket.close();
+            if(this.websocket) {
+                const {} = op as ClosePipeOperation;
+                this.websocket.send(JSON.stringify({
+                    [pipeActionTypeKey]: PipeActionType.LEAVE,
+                    [pipeNameKey]: this.pipe.getName()
+                } as LeavePipeAction));
+                this.state = PipeState.CLOSING;
+                return this.websocket.close();
+            }
         } else if (type === PipeOperationType.JOIN) {
-            const { channel } = op as JoinPipeOperation;
-            this.websocket.send(JSON.stringify({
-                [pipeActionTypeKey]: PipeActionType.JOIN,
-                [pipeNameKey]: channel
-            } as JoinPipeAction));
+            if(this.websocket) {
+                const { channel } = op as JoinPipeOperation;
+                this.websocket.send(JSON.stringify({
+                    [pipeActionTypeKey]: PipeActionType.JOIN,
+                    [pipeNameKey]: channel
+                } as JoinPipeAction));
+            }
         } else {
             throw new Error(`Unknown op type ${type}`)
         }
@@ -212,7 +229,22 @@ export class PipeAgent extends Subscribable<any> {
         const invocationID = uuid();
         const op: SendPipeOperation<SpecialMethodInvocation> = {
             type: PipeOperationType.SEND,
-            data: { specialMethod: GET_METHODS_COMMAND, invocationID }
+            data: { specialMethod: GET_METHODS_COMMAND, args: [], invocationID }
+        };
+        return new Promise((resolve, reject) => {
+            this.awaitingResponse.set(invocationID, (response) => {
+                resolve(response);
+            });
+            this.enqueueOperation(op);
+            if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
+        });
+    }
+
+    public setAPIKey(key: string): Promise<ClientAddonMethod> {
+        const invocationID = uuid();
+        const op: SendPipeOperation<SpecialMethodInvocation> = {
+            type: PipeOperationType.SEND,
+            data: { specialMethod: SET_API_KEY_COMMAND, args: [key], invocationID }
         };
         return new Promise((resolve, reject) => {
             this.awaitingResponse.set(invocationID, (response) => {
@@ -225,10 +257,6 @@ export class PipeAgent extends Subscribable<any> {
 
     public close(): void {
         const op: ClosePipeOperation = { type: PipeOperationType.CLOSE };
-        this.websocket.send(JSON.stringify({
-            [pipeActionTypeKey]: PipeActionType.LEAVE,
-            [pipeNameKey]: this.pipe.getName()
-        } as LeavePipeAction));
         this.enqueueOperation(op);
         if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
     }
