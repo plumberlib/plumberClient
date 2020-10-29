@@ -3,7 +3,7 @@ import { ClientAddonMethod, Pipe } from "./pipe";
 import { uuid } from "./util";
 import { Mocket } from "./mocket";
 import { Connection, Doc } from 'sharedb/lib/client';
-import sharedb = require("sharedb");
+import * as ShareDB from 'sharedb';
 import { Plumber } from "./plumber";
 
 export const pipeActionTypeKey = 't';
@@ -35,7 +35,7 @@ enum PipeState {
     CLOSED     = 3 //WebSocket.CLOSED,
 };
 
-enum PipeOperationType {
+export enum PipeOperationType {
     SEND = 'send',
     CLOSE = 'close',
     JOIN = 'join',
@@ -74,25 +74,26 @@ export interface AuthenticateAPIKeyInvocation {
     args: [string]
 }
 export interface ShareDBOp {
-    method: 'sharedb',
+    method: PipeOperationType.SDB,
     args: any[]
 }
 
 export class PipeAgent extends Subscribable<any> {
+    public static PIPES_ADMIN_DOC_ID = '|';
     private state: PipeState = PipeState.CONNECTING;
     private readonly operationQueue: PipeOperation[] = [];
     private readonly awaitingResponse: Map<string, (response: any) => void> = new Map();
     private readonly shareDBMocket: Mocket;
     private readonly sdbConnection: Connection;
     private websocket: WebSocket;
-    constructor(private readonly plumber: Plumber, private readonly pipe: Pipe<any>) {
+    constructor(private readonly plumber: Plumber, private readonly pipe: Pipe) {
         super();
 
         this.updateWebsocket();
         this.shareDBMocket = new Mocket(this.websocket, (dataString: string) => {
             const op: SendPipeOperation<ShareDBOp> = {
                 type: PipeOperationType.SEND,
-                data: { method: 'sharedb', args: [JSON.parse(dataString)] }
+                data: { method: PipeOperationType.SDB, args: [JSON.parse(dataString)] }
             };
             this.enqueueOperation(op);
             if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
@@ -100,7 +101,7 @@ export class PipeAgent extends Subscribable<any> {
         this.sdbConnection = new Connection(this.shareDBMocket as any);
     }
     public updateWebsocket(): void {
-        this.setWebsocket(this.plumber.websocket);
+        this.setWebsocket(this.plumber.getWebsocket());
     }
 
     private setWebsocket(ws: WebSocket): void {
@@ -127,7 +128,7 @@ export class PipeAgent extends Subscribable<any> {
                     parsedData[pipeNameKey] === this.pipe.getName()) {
                     const payload = parsedData[pipeMessageKey];
 
-                    if(payload.method === 'sharedb') {
+                    if(payload.method === PipeOperationType.SDB) {
                         const { args } = payload;
                         this.shareDBMocket.pushData(args[0]);
                     } else {
@@ -223,6 +224,10 @@ export class PipeAgent extends Subscribable<any> {
             this.enqueueOperation(op);
             if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
         });
+    }
+
+    public getAllPipesDoc(): ShareDB.Doc {
+        return this.getShareDBDoc(PipeAgent.PIPES_ADMIN_DOC_ID);
     }
 
     public getMethods(): Promise<ClientAddonMethod> {
