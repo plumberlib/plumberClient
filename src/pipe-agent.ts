@@ -119,6 +119,7 @@ export class PipeAgent extends Subscribable<any> {
 
             this.websocket.addEventListener('message', (event) => {
                 const { data } = event;
+                // console.log('IN <=', data);
                 const parsedData = JSON.parse(data) as PipeAction;
                 const pipeName = parsedData[pipeNameKey];
 
@@ -178,11 +179,13 @@ export class PipeAgent extends Subscribable<any> {
     private async runOperationQueue(): Promise<void> {
         while(this.authOperationQueue.length > 0) {
             const op = this.authOperationQueue.shift();
+            // console.log('OUT =>', op);
             this.websocket.send(JSON.stringify(op));
         }
         if(this.plumber.isAuthenticated()) {
             while(this.operationQueue.length > 0) {
                 const op = this.operationQueue.shift();
+                // console.log('OUT =>', op);
                 this.websocket.send(JSON.stringify(op));
             }
         }
