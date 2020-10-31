@@ -14,6 +14,7 @@ export class Pipe extends Subscribable<any> {
 
     constructor(private readonly name: string, plumber: Plumber) {
         super();
+        if(!plumber) { plumber = this as any as Plumber;} // the plumber object itself is a Pipe. If we pass in null, assume this object is the plumber
         this.agent = new PipeAgent(plumber, this);
         this.agent.subscribe((data: any) => {
             this.forEachSubscriber((sub) => {
@@ -25,11 +26,20 @@ export class Pipe extends Subscribable<any> {
         }
     }
 
+    public async shout(data: any): Promise<void> {
+        await this.do('shout', data);
+    }
+    public createDoc(documentID: string, data: any): Doc {
+        const doc = this.agent.getShareDBDoc(documentID);
+        this.do('create_sdb_doc', documentID, data);
+        return doc;
+    }
+
     public getMethods(): Promise<ClientAddonMethod> {
         return this.agent.getMethods();
     }
 
-    public do(opName: string, ...args: any[]): Promise<any> {
+    private do(opName: string, ...args: any[]): Promise<any> {
         return this.agent.do(opName, ...args);
     }
 
@@ -48,11 +58,15 @@ export class Pipe extends Subscribable<any> {
     public updateWebsocket(): void {
         this.agent.updateWebsocket();
     }
+
+    public onAuthenticated(): void {
+        this.agent.onAuthenticated();
+    }
 }
 
 export class AdminPipe extends Pipe {
-    public async setAPIKey(key: string): Promise<void> {
-        await this.agent.setAPIKey(key);
+    public setAPIKey(key: string): Promise<boolean> {
+        return this.agent.setAPIKey(key);
     }
     public getPipesDoc(): ShareDB.Doc {
         return this.agent.getAllPipesDoc();

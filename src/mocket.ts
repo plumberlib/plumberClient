@@ -25,12 +25,18 @@ export class Mocket {
         }
         this.ws = ws;
         if(this.ws) {
-            this.readyState = this.ws.readyState;
-            this.ws.addEventListener('open', this.$onOpen);
+            this.readyState = WebSocket.CONNECTING;
+            // this.readyState = this.ws.readyState;
+            // this.ws.addEventListener('open', this.$onOpen);
             this.ws.addEventListener('close', this.$onClose);
             this.ws.addEventListener('error', this.$onError);
             // this.ws.addEventListener('message', this.$onMessage);
         }
+    }
+
+    public markOpen(): void {
+        this.readyState = this.ws.readyState;
+        this.$onOpen(null);
     }
 
     public readyState: number;
@@ -53,10 +59,10 @@ export class Mocket {
     }
 
     private removeListeners(): void {
-        this.ws.removeEventListener('open', this.$onOpen);
+        // this.ws.removeEventListener('open', this.$onOpen);
         this.ws.removeEventListener('close', this.$onClose);
         this.ws.removeEventListener('error', this.$onError);
-        this.ws.removeEventListener('message', this.$onMessage);
+        // this.ws.removeEventListener('message', this.$onMessage);
     }
 
     private destroy(): void {

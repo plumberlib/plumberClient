@@ -5,17 +5,25 @@ export interface PlumberConfig {
     websocketURL?: string
 }
 
-export class Plumber {
+export class Plumber extends Pipe {
     public static ADMIN_PIPE_NAME: string = '@';
     public static DEFAULT_PIPE_NAME: string = 'default';
     private readonly configuration: PlumberConfig = {
         apiKey: false,
         websocketURL: 'wss://plumberlib.com/'
     };
+    private _isAuthenticated: boolean = false;
     private websocket: WebSocket|null = null;
     private readonly pipes: Map<string, Pipe> = new Map([ [ Plumber.ADMIN_PIPE_NAME, new AdminPipe(Plumber.ADMIN_PIPE_NAME, this) ] ]);
 
-    public constructor() { }
+    public constructor() {
+        super(Plumber.DEFAULT_PIPE_NAME, null);
+        this.pipes.set(Plumber.DEFAULT_PIPE_NAME, this);
+    }
+
+    public getWebsocketURL(): string {
+        return this.configuration.websocketURL;
+    }
 
     public config(configOptions: PlumberConfig): void {
         Object.entries(configOptions).forEach(([key, value]) => {
@@ -26,17 +34,16 @@ export class Plumber {
             if(this.websocket) {
                 this.websocket.close();
             }
-            this.updateWebsocket();
+            this.updatePipeWebsockets();
         }
         if(configOptions.hasOwnProperty('apiKey')) {
-            const adminPipe = this.getAdminPipe();
-            adminPipe.setAPIKey(this.configuration.apiKey as string);
+            this.updateAPIKey();
         }
     }
     public createPipe(name: string = Plumber.DEFAULT_PIPE_NAME): Pipe {
         if(name === Plumber.ADMIN_PIPE_NAME) { throw new Error(`${name} is a reserved pipe name`); }
         if(!this.websocket) {
-            this.updateWebsocket();
+            this.updatePipeWebsockets();
         }
 
         this.updateAPIKey();
@@ -59,9 +66,18 @@ export class Plumber {
     }
     private async updateAPIKey(): Promise<void> {
         const adminPipe = this.getAdminPipe();
-        await adminPipe.setAPIKey(this.configuration.apiKey as string);
+        const isValid = await adminPipe.setAPIKey(this.configuration.apiKey as string);
+        if(isValid) {
+            this._isAuthenticated = true;
+            this.pipes.forEach((pipe: Pipe) => {
+                pipe.onAuthenticated();
+            });
+        }
     }
-    private updateWebsocket(): void {
+    public isAuthenticated(): boolean { 
+        return this._isAuthenticated;
+    }
+    private updatePipeWebsockets(): void {
         this.websocket = new WebSocket(this.configuration.websocketURL);
         this.pipes.forEach((pipe: Pipe) => {
             pipe.updateWebsocket();
