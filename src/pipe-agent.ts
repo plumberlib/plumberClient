@@ -5,7 +5,6 @@ import { Mocket } from "./mocket";
 import { Connection, Doc } from 'sharedb/lib/client';
 import * as ShareDB from 'sharedb';
 import { Plumber } from "./plumber";
-import { parse } from "path";
 
 export const pipeActionTypeKey      = 'type';
 export const pipeNameKey            = 'pipe-name';
