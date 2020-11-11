@@ -65,13 +65,15 @@ export class Plumber extends Pipe {
         return this.pipes.get(Plumber.ADMIN_PIPE_NAME) as AdminPipe;
     }
     private async updateAPIKey(): Promise<void> {
-        const adminPipe = this.getAdminPipe();
-        const isValid = await adminPipe.setAPIKey(this.configuration.apiKey as string);
-        if(isValid) {
-            this._isAuthenticated = true;
-            this.pipes.forEach((pipe: Pipe) => {
-                pipe.onAuthenticated();
-            });
+        if(!this.isAuthenticated()) {
+            const adminPipe = this.getAdminPipe();
+            const isValid = await adminPipe.setAPIKey(this.configuration.apiKey as string);
+            if(isValid) {
+                this._isAuthenticated = true;
+                this.pipes.forEach((pipe: Pipe) => {
+                    pipe.onAuthenticated();
+                });
+            }
         }
     }
     public isAuthenticated(): boolean { 

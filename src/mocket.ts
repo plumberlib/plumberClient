@@ -14,7 +14,6 @@ export class Mocket {
 
     private ws: WebSocket;
 
-
     public constructor(ws: WebSocket, private readonly doSend: (data: string) => any) {
         this.setWebsocket(ws);
     }
