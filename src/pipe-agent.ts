@@ -100,6 +100,10 @@ export class PipeAgent extends Subscribable<any> {
     }
 
     private setWebsocket(ws: WebSocket): void {
+        if(this.shareDBMocket) {
+            this.shareDBMocket.close();
+        }
+
         this.websocket = ws;
 
         if(this.websocket) {

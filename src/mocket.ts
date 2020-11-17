@@ -58,10 +58,12 @@ export class Mocket {
     }
 
     private removeListeners(): void {
-        // this.ws.removeEventListener('open', this.$onOpen);
-        this.ws.removeEventListener('close', this.$onClose);
-        this.ws.removeEventListener('error', this.$onError);
-        // this.ws.removeEventListener('message', this.$onMessage);
+        if(this.ws) {
+            // this.ws.removeEventListener('open', this.$onOpen);
+            this.ws.removeEventListener('close', this.$onClose);
+            this.ws.removeEventListener('error', this.$onError);
+            // this.ws.removeEventListener('message', this.$onMessage);
+        }
     }
 
     private destroy(): void {
