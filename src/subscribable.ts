@@ -3,9 +3,10 @@ export class Subscribable<T> {
     private readonly subscribers: Subscriber<T>[] = [];
     constructor() { }
 
-    public subscribe(subscriber: Subscriber<T>): void {
+    public subscribe(subscriber: Subscriber<T>): Subscriber<T> {
         this.subscribers.push(subscriber);
         if(this.subscribers.length === 1) { this.onHasSubscribers(); }
+        return subscriber;
     }
 
     public unsubscribe(subscriber: Subscriber<T>): void {
