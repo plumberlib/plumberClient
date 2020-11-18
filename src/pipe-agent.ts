@@ -20,6 +20,7 @@ export const methodResponseErrorKey = 'method-error';
 export const GET_METHODS_COMMAND = '__getmethods__';
 export const SET_API_KEY_COMMAND = '__setapikey__';
 
+export const RATE_LIMIT_EXCEEDED_TYPE = '__rate_limit_exceeded__'
 
 export enum PipeActionType {
     JOIN = 'join',
@@ -146,6 +147,10 @@ export class PipeAgent extends Subscribable<any> {
                     } else if(actionType === PipeActionType.MESSAGE) {
                         const messageAction = parsedData as MessagePipeAction;
                         const message = messageAction[pipeMessageKey];
+
+                        if(message && message.type && message.type === RATE_LIMIT_EXCEEDED_TYPE) {
+                            throw new Error('API Rate limit exceeded');
+                        }
 
                         this.forEachSubscriber((subscriber) => {
                             subscriber(message);
