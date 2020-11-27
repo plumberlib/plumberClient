@@ -229,6 +229,13 @@ export class PipeAgent extends Subscribable<any> {
     }
 
     public do(method: string, ...args: any[]): Promise<any> {
+        if(!this.plumber.isAuthenticated()) {
+            console.error(`Tried to call method ${method} (on pipe ${this.pipe.getName()}) before authentication. Be sure to set the API key first by calling:
+
+plumber.config({
+    apiKey: KEY_HERE
+});`);
+        }
         return this.doCallMethod(method, args, true, false);
     }
 
