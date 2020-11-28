@@ -1,67 +1,12 @@
 import { Subscribable } from "./subscribable";
-import { ClientAddonMethod, Pipe } from "./pipe";
+import { Pipe } from "./pipe";
 import { uuid } from "./util";
 import { Mocket } from "./mocket";
 import { Connection, Doc } from 'sharedb/lib/client';
 import * as ShareDB from 'sharedb';
 import { Plumber } from "./plumber";
+import { PipeAction, ShareDBPipeAction, pipeActionTypeKey, PipeActionType, shareDBDataKey, pipeNameKey, MethodInvocationResponsePipeAction, methodIIDKey, methodResponseErrorKey, methodResponseDataKey, MessagePipeAction, pipeMessageKey, RATE_LIMIT_EXCEEDED_TYPE, JoinPipeAction, MethodInvocationPipeAction, methodNameKey, methodArgsKey, GET_METHODS_COMMAND, SET_API_KEY_COMMAND, LeavePipeAction, PIPES_ADMIN_DOC_ID, ClientAddonMethod } from "./constants";
 
-export const pipeActionTypeKey      = 'type';
-export const pipeNameKey            = 'pipe-name';
-export const pipeScopeKey           = 'pipe-scope';
-export const pipeMessageKey         = 'message';
-export const methodNameKey          = 'method';
-export const methodArgsKey          = 'arguments';
-export const methodIIDKey           = 'invocation-id';
-export const shareDBDataKey         = 'sharedb-data';
-export const methodResponseDataKey  = 'response';
-export const methodResponseErrorKey = 'method-error';
-
-export const GET_METHODS_COMMAND = '__getmethods__';
-export const SET_API_KEY_COMMAND = '__setapikey__';
-
-export const RATE_LIMIT_EXCEEDED_TYPE = '__rate_limit_exceeded__'
-
-export enum PipeActionType {
-    JOIN = 'join',
-    LEAVE = 'leave',
-    METHOD_INVOCATION = 'invoke',
-    METHOD_INVOCATION_RESPONSE = 'response',
-    SHAREDB_OP = 'sdb',
-    MESSAGE = 'message'
-}
-export interface PipeAction {
-    [pipeActionTypeKey]: PipeActionType,
-    [pipeNameKey]: string,
-    [pipeScopeKey]?: string
-}
-export interface JoinPipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.JOIN,
-}
-export interface LeavePipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.LEAVE,
-}
-export interface MethodInvocationPipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.METHOD_INVOCATION,
-    [methodNameKey]: string,
-    [methodArgsKey]?: any[],
-    [methodIIDKey]?: string
-}
-export interface ShareDBPipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.SHAREDB_OP,
-    [shareDBDataKey]: any
-}
-export interface MethodInvocationResponsePipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.METHOD_INVOCATION_RESPONSE,
-    [methodIIDKey]: string,
-    [methodResponseErrorKey]: any
-    [methodResponseDataKey]: any
-}
-
-export interface MessagePipeAction extends PipeAction {
-    [pipeActionTypeKey]: PipeActionType.MESSAGE,
-    [pipeMessageKey]: any
-}
 
 enum PipeState {
     CONNECTING = 0, //WebSocket.CONNECTING,
@@ -71,7 +16,6 @@ enum PipeState {
 };
 
 export class PipeAgent extends Subscribable<any> {
-    public static PIPES_ADMIN_DOC_ID = '|';
     private state: PipeState = PipeState.CONNECTING;
     private readonly authOperationQueue: PipeAction[] = [];
     private readonly operationQueue: PipeAction[] = [];
@@ -108,11 +52,15 @@ export class PipeAgent extends Subscribable<any> {
         this.websocket = ws;
 
         if(this.websocket) {
-            if(this.websocket.readyState === WebSocket.OPEN) {
+            console.log(this.websocket.readyState);
+            console.log(this.websocket.url);
+            if(this.websocket.readyState === Plumber.WebSocket.OPEN) {
                 this.state = PipeState.OPEN;
                 this.runOperationQueue();
             }
+            console.log('add open listener');
             this.websocket.addEventListener('open', () => {
+                console.log('opened');
                 this.state = PipeState.OPEN;
                 this.runOperationQueue();
             });
@@ -240,7 +188,7 @@ plumber.config({
     }
 
     public getAllPipesDoc(): ShareDB.Doc {
-        return this.getShareDBDoc(PipeAgent.PIPES_ADMIN_DOC_ID);
+        return this.getShareDBDoc(PIPES_ADMIN_DOC_ID);
     }
 
     public getMethods(): Promise<ClientAddonMethod> {

@@ -1,3 +1,5 @@
+import { Plumber } from "./plumber";
+
 export class Mocket {
     private readonly $onOpen = (ev: Event) => {
         if(this.onopen) { this.onopen(ev); }
@@ -24,7 +26,7 @@ export class Mocket {
         }
         this.ws = ws;
         if(this.ws) {
-            this.readyState = WebSocket.CONNECTING;
+            this.readyState = Plumber.WebSocket.CONNECTING;
             // this.readyState = this.ws.readyState;
             // this.ws.addEventListener('open', this.$onOpen);
             this.ws.addEventListener('close', this.$onClose);

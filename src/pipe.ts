@@ -1,13 +1,10 @@
 import * as ShareDB from 'sharedb';
 import { Doc } from "sharedb/lib/client";
+import { ADMIN_PIPE_NAME, ClientAddonMethod } from './constants';
 import { PipeAgent } from "./pipe-agent";
 import { Plumber } from "./plumber";
 import { Subscribable } from "./subscribable";
 
-export interface ClientAddonMethod {
-    name: string,
-    description?: string,
-}
 
 export class Pipe extends Subscribable<any> {
     protected readonly agent: PipeAgent;
@@ -21,7 +18,7 @@ export class Pipe extends Subscribable<any> {
                 sub(data);
             });
         });
-        if(this.getName() !== Plumber.ADMIN_PIPE_NAME) {
+        if(this.getName() !== ADMIN_PIPE_NAME) {
             this.agent.join(this.name);
         }
     }

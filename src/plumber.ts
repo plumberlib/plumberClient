@@ -1,3 +1,4 @@
+import { ADMIN_PIPE_NAME, DEFAULT_PIPE_NAME } from './constants';
 import { AdminPipe, Pipe } from './pipe';
 
 export interface PlumberConfig {
@@ -6,19 +7,18 @@ export interface PlumberConfig {
 }
 
 export class Plumber extends Pipe {
-    public static ADMIN_PIPE_NAME: string = '@';
-    public static DEFAULT_PIPE_NAME: string = 'default';
+    public static WebSocket = typeof(window) === 'undefined' ? null : WebSocket;
     private readonly configuration: PlumberConfig = {
         apiKey: false,
         websocketURL: 'wss://plumberlib.com/'
     };
     private _isAuthenticated: boolean = false;
     private websocket: WebSocket|null = null;
-    private readonly pipes: Map<string, Pipe> = new Map([ [ Plumber.ADMIN_PIPE_NAME, new AdminPipe(Plumber.ADMIN_PIPE_NAME, this) ] ]);
+    private readonly pipes: Map<string, Pipe> = new Map([ [ ADMIN_PIPE_NAME, new AdminPipe(ADMIN_PIPE_NAME, this) ] ]);
 
     public constructor() {
-        super(Plumber.DEFAULT_PIPE_NAME, null);
-        this.pipes.set(Plumber.DEFAULT_PIPE_NAME, this);
+        super(DEFAULT_PIPE_NAME, null);
+        this.pipes.set(DEFAULT_PIPE_NAME, this);
     }
 
     public getWebsocketURL(): string {
@@ -40,8 +40,8 @@ export class Plumber extends Pipe {
             this.updateAPIKey();
         }
     }
-    public createPipe(name: string = Plumber.DEFAULT_PIPE_NAME): Pipe {
-        if(name === Plumber.ADMIN_PIPE_NAME) { throw new Error(`${name} is a reserved pipe name`); }
+    public createPipe(name: string = DEFAULT_PIPE_NAME): Pipe {
+        if(name === ADMIN_PIPE_NAME) { throw new Error(`${name} is a reserved pipe name`); }
         if(!this.websocket) {
             this.updatePipeWebsockets();
         }
@@ -51,7 +51,7 @@ export class Plumber extends Pipe {
         this.pipes.set(name, pipe);
         return pipe;
     }
-    public getPipe(name: string = Plumber.DEFAULT_PIPE_NAME): Pipe {
+    public getPipe(name: string = DEFAULT_PIPE_NAME): Pipe {
         if (this.hasPipe(name)) {
             return this.pipes.get(name);
         } else {
@@ -62,7 +62,7 @@ export class Plumber extends Pipe {
         return this.pipes.has(name);
     }
     private getAdminPipe(): AdminPipe {
-        return this.pipes.get(Plumber.ADMIN_PIPE_NAME) as AdminPipe;
+        return this.pipes.get(ADMIN_PIPE_NAME) as AdminPipe;
     }
     private async updateAPIKey(): Promise<void> {
         if(!this.isAuthenticated()) {
@@ -80,7 +80,7 @@ export class Plumber extends Pipe {
         return this._isAuthenticated;
     }
     private updatePipeWebsockets(): void {
-        this.websocket = new WebSocket(this.configuration.websocketURL);
+        this.websocket = new Plumber.WebSocket(this.configuration.websocketURL);
         this.pipes.forEach((pipe: Pipe) => {
             pipe.updateWebsocket();
         });
