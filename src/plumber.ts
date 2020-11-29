@@ -13,7 +13,7 @@ export class Plumber extends Pipe {
         websocketURL: 'wss://plumberlib.com/'
     };
     private _isAuthenticated: boolean = false;
-    private websocket: WebSocket|null = null;
+    public websocket: WebSocket|null = null;
     private readonly pipes: Map<string, Pipe> = new Map([ [ ADMIN_PIPE_NAME, new AdminPipe(ADMIN_PIPE_NAME, this) ] ]);
 
     public constructor() {
@@ -25,7 +25,7 @@ export class Plumber extends Pipe {
         return this.configuration.websocketURL;
     }
 
-    public config(configOptions: PlumberConfig): void {
+    public config(configOptions: PlumberConfig): Promise<void> {
         Object.entries(configOptions).forEach(([key, value]) => {
             this.configuration[key] = value;
         });
@@ -37,8 +37,9 @@ export class Plumber extends Pipe {
             this.updatePipeWebsockets();
         }
         if(configOptions.hasOwnProperty('apiKey')) {
-            this.updateAPIKey();
+            return this.updateAPIKey();
         }
+        return Promise.resolve();
     }
     public createPipe(name: string = DEFAULT_PIPE_NAME): Pipe {
         if(name === ADMIN_PIPE_NAME) { throw new Error(`${name} is a reserved pipe name`); }
@@ -56,6 +57,13 @@ export class Plumber extends Pipe {
             return this.pipes.get(name);
         } else {
             return this.createPipe(name);
+        }
+    }
+    public closePipe(name: string = DEFAULT_PIPE_NAME): void {
+        if(this.hasPipe(name)) {
+            const pipe = this.pipes.get(name);
+            pipe.__destroy();
+            this.pipes.delete(name);
         }
     }
     public hasPipe(name: string): boolean {
@@ -92,6 +100,18 @@ export class Plumber extends Pipe {
 
     public getWebsocket(): WebSocket {
         return this.websocket;
+    }
+
+    public teardown(): void {
+        Array.from(this.pipes.keys()).map((key) => {
+            // if(key !== ADMIN_PIPE_NAME) {
+                this.closePipe(key);
+            // }
+        });
+        if(this.websocket) {
+            this.websocket.close();
+            this.websocket = null;
+        }
     }
 }
 

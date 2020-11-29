@@ -52,15 +52,11 @@ export class PipeAgent extends Subscribable<any> {
         this.websocket = ws;
 
         if(this.websocket) {
-            console.log(this.websocket.readyState);
-            console.log(this.websocket.url);
             if(this.websocket.readyState === Plumber.WebSocket.OPEN) {
                 this.state = PipeState.OPEN;
                 this.runOperationQueue();
             }
-            console.log('add open listener');
             this.websocket.addEventListener('open', () => {
-                console.log('opened');
                 this.state = PipeState.OPEN;
                 this.runOperationQueue();
             });
@@ -214,5 +210,6 @@ plumber.config({
     public close(): void {
         const op: LeavePipeAction = { [pipeActionTypeKey]: PipeActionType.LEAVE, [pipeNameKey]: this.pipe.getName() };
         this.enqueueOperation(op);
+        this.shareDBMocket.close();
     }
 }

@@ -8,19 +8,28 @@ import { Subscribable } from "./subscribable";
 
 export class Pipe extends Subscribable<any> {
     protected readonly agent: PipeAgent;
+    private $agentSubscription: (data: any) => void;
 
     constructor(private readonly name: string, plumber: Plumber) {
         super();
         if(!plumber) { plumber = this as any as Plumber;} // the plumber object itself is a Pipe. If we pass in null, assume this object is the plumber
         this.agent = new PipeAgent(plumber, this);
-        this.agent.subscribe((data: any) => {
-            this.forEachSubscriber((sub) => {
-                sub(data);
-            });
-        });
+        this.$agentSubscription = this.onAgentData.bind(this);
+        this.agent.subscribe(this.$agentSubscription);
         if(this.getName() !== ADMIN_PIPE_NAME) {
             this.agent.join(this.name);
         }
+    }
+
+    private onAgentData(data: any): void {
+        this.forEachSubscriber((sub) => {
+            sub(data);
+        });
+    }
+
+    public __destroy(): void {
+        this.agent.unsubscribe(this.$agentSubscription);
+        this.agent.close();
     }
 
     public async shout(data: any): Promise<void> {
@@ -42,10 +51,6 @@ export class Pipe extends Subscribable<any> {
 
     public getDoc(documentID: string): Doc {
         return this.agent.getShareDBDoc(documentID);
-    }
-
-    public close(): void {
-        this.agent.close();
     }
 
     public getName() {
