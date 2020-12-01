@@ -6,13 +6,14 @@ import { Connection, Doc } from 'sharedb/lib/client';
 import * as ShareDB from 'sharedb';
 import { Plumber } from "./plumber";
 import { PipeAction, ShareDBPipeAction, pipeActionTypeKey, PipeActionType, shareDBDataKey, pipeNameKey, MethodInvocationResponsePipeAction, methodIIDKey, methodResponseErrorKey, methodResponseDataKey, MessagePipeAction, pipeMessageKey, RATE_LIMIT_EXCEEDED_TYPE, JoinPipeAction, MethodInvocationPipeAction, methodNameKey, methodArgsKey, GET_METHODS_COMMAND, SET_API_KEY_COMMAND, LeavePipeAction, PIPES_ADMIN_DOC_ID, ClientAddonMethod } from "./constants";
+import { resolve } from "path";
 
 
 enum PipeState {
     CONNECTING = 0, //WebSocket.CONNECTING,
     OPEN       = 1, //WebSocket.OPEN,
     CLOSING    = 2, //WebSocket.CLOSING,
-    CLOSED     = 3 //WebSocket.CLOSED,
+    CLOSED     = 3  //WebSocket.CLOSED,
 };
 
 export class PipeAgent extends Subscribable<any> {
@@ -113,9 +114,12 @@ export class PipeAgent extends Subscribable<any> {
         return this.sdbConnection.get(this.pipe.getName(), documentID);
     }
 
-    public join(channel: string): void {
-        const op: JoinPipeAction = { [pipeActionTypeKey]: PipeActionType.JOIN, [pipeNameKey]: channel };
+    public join(channel: string): Promise<boolean> {
+        const invocationID = uuid();
+        const op: JoinPipeAction = { [pipeActionTypeKey]: PipeActionType.JOIN, [pipeNameKey]: channel, [methodIIDKey]: invocationID };
+        const rv = this.addToAwaitingResponse(invocationID).then((response) => true, (err) => false);
         this.enqueueOperation(op);
+        return rv;
     }
 
 
@@ -123,6 +127,7 @@ export class PipeAgent extends Subscribable<any> {
         this.authOperationQueue.push(op);
         if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
     }
+
     private enqueueOperation(op: PipeAction): void {
         this.operationQueue.push(op);
         if(this.state === PipeState.OPEN) { this.runOperationQueue(); }
@@ -153,28 +158,30 @@ export class PipeAgent extends Subscribable<any> {
         if(args.length > 0) { op[methodArgsKey] = args; }
         if(invocationID)    { op[methodIIDKey]  = invocationID; }
 
-        return new Promise((resolve, reject) => {
-            if(invocationID) {
-                this.awaitingResponse.set(invocationID, (err: any, response: any) => {
-                    if(err) {
-                        reject(err);
-                    } else {
-                        resolve(response);
-                    }
-                });
-            }
+        const rv = invocationID ? this.addToAwaitingResponse(invocationID) : Promise.resolve();
+        if(isAuthMethod) {
+            this.enqueueAuthOperation(op);
+        } else {
+            this.enqueueOperation(op);
+        }
+        return rv;
+    }
 
-            if(isAuthMethod) {
-                this.enqueueAuthOperation(op);
-            } else {
-                this.enqueueOperation(op);
-            }
+    private addToAwaitingResponse(invocationID: string): Promise<any> {
+        return new Promise((resolve, reject) => {
+            this.awaitingResponse.set(invocationID, (err: any, response: any) => {
+                if(err) {
+                    reject(err);
+                } else {
+                    resolve(response);
+                }
+            });
         });
     }
 
     public do(method: string, ...args: any[]): Promise<any> {
-        if(!this.plumber.isAuthenticated()) {
-            console.error(`Tried to call method ${method} (on pipe ${this.pipe.getName()}) before authentication. Be sure to set the API key first by calling:
+        if(!this.plumber.isAuthenticated() && !this.plumber.isAuthenticating()) {
+            throw new Error(`Tried to call method ${method} (on pipe ${this.pipe.getName()}) before authentication. Be sure to set the API key first by calling:
 
 plumber.config({
     apiKey: KEY_HERE
@@ -207,9 +214,14 @@ plumber.config({
         this.runOperationQueue();
     }
 
-    public close(): void {
-        const op: LeavePipeAction = { [pipeActionTypeKey]: PipeActionType.LEAVE, [pipeNameKey]: this.pipe.getName() };
-        this.enqueueOperation(op);
-        this.shareDBMocket.close();
+    public close(): Promise<boolean> {
+        // const invocationID = uuid();
+        // const op: LeavePipeAction = { [pipeActionTypeKey]: PipeActionType.LEAVE, [pipeNameKey]: this.pipe.getName(), [methodIIDKey]: invocationID };
+        // this.enqueueOperation(op);
+        // this.shareDBMocket.close();
+        // return this.addToAwaitingResponse(invocationID).then((response) => {
+        //     return true;
+        // });
+        return Promise.resolve(true);
     }
 }

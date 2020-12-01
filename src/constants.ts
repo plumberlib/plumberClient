@@ -34,9 +34,11 @@ export interface PipeAction {
 }
 export interface JoinPipeAction extends PipeAction {
     [pipeActionTypeKey]: PipeActionType.JOIN,
+    [methodIIDKey]: string,
 }
 export interface LeavePipeAction extends PipeAction {
     [pipeActionTypeKey]: PipeActionType.LEAVE,
+    [methodIIDKey]: string,
 }
 export interface MethodInvocationPipeAction extends PipeAction {
     [pipeActionTypeKey]: PipeActionType.METHOD_INVOCATION,
@@ -63,4 +65,9 @@ export interface MessagePipeAction extends PipeAction {
 export interface ClientAddonMethod {
     name: string,
     description?: string,
+}
+
+export type PipeEvent = 'joined' | 'left' | 'authenticated' | 'authentication_failed';
+export interface PipeJoinedEvent {
+    type: 'joined'
 }

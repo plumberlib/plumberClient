@@ -13,6 +13,7 @@ export class Plumber extends Pipe {
         websocketURL: 'wss://plumberlib.com/'
     };
     private _isAuthenticated: boolean = false;
+    private _isAuthenticating: boolean = false;
     public websocket: WebSocket|null = null;
     private readonly pipes: Map<string, Pipe> = new Map([ [ ADMIN_PIPE_NAME, new AdminPipe(ADMIN_PIPE_NAME, this) ] ]);
 
@@ -37,7 +38,10 @@ export class Plumber extends Pipe {
             this.updatePipeWebsockets();
         }
         if(configOptions.hasOwnProperty('apiKey')) {
-            return this.updateAPIKey();
+            this._isAuthenticating = true;
+            return this.updateAPIKey().finally(() => {
+                this._isAuthenticating = false;
+            });
         }
         return Promise.resolve();
     }
@@ -87,6 +91,9 @@ export class Plumber extends Pipe {
     public isAuthenticated(): boolean { 
         return this._isAuthenticated;
     }
+    public isAuthenticating(): boolean { 
+        return this._isAuthenticating;
+    }
     private updatePipeWebsockets(): void {
         this.websocket = new Plumber.WebSocket(this.configuration.websocketURL);
         this.pipes.forEach((pipe: Pipe) => {
@@ -109,7 +116,9 @@ export class Plumber extends Pipe {
             // }
         });
         if(this.websocket) {
-            this.websocket.close();
+            if(this.websocket.readyState === Plumber.WebSocket.OPEN) {
+                this.websocket.close();
+            }
             this.websocket = null;
         }
     }

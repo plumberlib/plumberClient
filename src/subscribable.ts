@@ -1,4 +1,6 @@
-type Subscriber<T> = (data: T) => any;
+import { PipeEvent } from "./constants";
+
+export type Subscriber<T> = (data: T) => any;
 export class Subscribable<T> {
     private readonly subscribers: Subscriber<T>[] = [];
     constructor() { }

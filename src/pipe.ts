@@ -1,12 +1,13 @@
 import * as ShareDB from 'sharedb';
 import { Doc } from "sharedb/lib/client";
-import { ADMIN_PIPE_NAME, ClientAddonMethod } from './constants';
+import { ADMIN_PIPE_NAME, ClientAddonMethod, PipeJoinedEvent } from './constants';
 import { PipeAgent } from "./pipe-agent";
 import { Plumber } from "./plumber";
-import { Subscribable } from "./subscribable";
+import { Subscribable, Subscriber } from "./subscribable";
 
 
 export class Pipe extends Subscribable<any> {
+    public ready: Promise<boolean>;
     protected readonly agent: PipeAgent;
     private $agentSubscription: (data: any) => void;
 
@@ -17,7 +18,9 @@ export class Pipe extends Subscribable<any> {
         this.$agentSubscription = this.onAgentData.bind(this);
         this.agent.subscribe(this.$agentSubscription);
         if(this.getName() !== ADMIN_PIPE_NAME) {
-            this.agent.join(this.name);
+            this.ready = this.agent.join(this.name);
+        } else {
+            this.ready = Promise.resolve(true);
         }
     }
 
