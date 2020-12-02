@@ -6,8 +6,6 @@ import { Connection, Doc } from 'sharedb/lib/client';
 import * as ShareDB from 'sharedb';
 import { Plumber } from "./plumber";
 import { PipeAction, ShareDBPipeAction, pipeActionTypeKey, PipeActionType, shareDBDataKey, pipeNameKey, MethodInvocationResponsePipeAction, methodIIDKey, methodResponseErrorKey, methodResponseDataKey, MessagePipeAction, pipeMessageKey, RATE_LIMIT_EXCEEDED_TYPE, JoinPipeAction, MethodInvocationPipeAction, methodNameKey, methodArgsKey, GET_METHODS_COMMAND, SET_API_KEY_COMMAND, LeavePipeAction, PIPES_ADMIN_DOC_ID, ClientAddonMethod } from "./constants";
-import { resolve } from "path";
-
 
 enum PipeState {
     CONNECTING = 0, //WebSocket.CONNECTING,
@@ -39,6 +37,12 @@ export class PipeAgent extends Subscribable<any> {
         });
         this.sdbConnection = new Connection(this.shareDBMocket as any);
         // (this.sdbConnection as any).debug = true;
+    }
+
+    public onPipeReady(): void {
+        if(this.websocket && this.websocket.readyState === Plumber.WebSocket.OPEN) {
+            this.shareDBMocket.markOpen();
+        }
     }
 
     public updateWebsocket(): void {
@@ -111,7 +115,7 @@ export class PipeAgent extends Subscribable<any> {
     }
 
     public getShareDBDoc(documentID: string): Doc {
-        return this.sdbConnection.get(this.pipe.getName(), documentID);
+        return this.sdbConnection.get(`${this.plumber.getAPIKey()}-${this.pipe.getName()}`, documentID);
     }
 
     public join(channel: string): Promise<boolean> {

@@ -22,6 +22,9 @@ export class Pipe extends Subscribable<any> {
         } else {
             this.ready = Promise.resolve(true);
         }
+        this.ready.then(() => {
+            this.agent.onPipeReady();
+        })
     }
 
     private onAgentData(data: any): void {
