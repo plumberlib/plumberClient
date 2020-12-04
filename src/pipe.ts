@@ -70,6 +70,43 @@ export class Pipe extends Subscribable<any> {
     public onAuthenticated(): void {
         this.agent.onAuthenticated();
     }
+
+    //https://devcenter.heroku.com/articles/s3-upload-node
+    public getSignedRequest(file: File): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', `/sign-s3?file-name=${file.name}&file-type=${file.type}`);
+            xhr.addEventListener('readystatechange', () => {
+                if(xhr.readyState === 4) {
+                    if(xhr.status === 200) {
+                        const response = JSON.parse(xhr.responseText);
+                        Pipe.uploadFile(file, response.signedRequest, response.url);
+                    } else{
+                        throw new Error('Could not get signed URL.');
+                    }
+                }
+            });
+            xhr.send();
+        });
+    }
+
+    //https://devcenter.heroku.com/articles/s3-upload-node
+    private static uploadFile(file: File, signedRequest, url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', signedRequest);
+            xhr.addEventListener('readystatechange', () => {
+                if (xhr.readyState === 4) {
+                    if(xhr.status === 200) {
+                        resolve(url);
+                    } else {
+                        throw new Error('Could not upload file.');
+                    }
+                }
+            });
+            xhr.send(file);
+        });
+    }
 }
 
 export class AdminPipe extends Pipe {
