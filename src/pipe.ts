@@ -11,10 +11,10 @@ export class Pipe extends Subscribable<any> {
     protected readonly agent: PipeAgent;
     private $agentSubscription: (data: any) => void;
 
-    constructor(private readonly name: string, plumber: Plumber) {
+    constructor(private readonly name: string, private readonly plumber: Plumber) {
         super();
-        if(!plumber) { plumber = this as any as Plumber;} // the plumber object itself is a Pipe. If we pass in null, assume this object is the plumber
-        this.agent = new PipeAgent(plumber, this);
+        if(!this.plumber) { this.plumber = this as any as Plumber;} // the plumber object itself is a Pipe. If we pass in null, assume this object is the plumber
+        this.agent = new PipeAgent(this.plumber, this);
         this.$agentSubscription = this.onAgentData.bind(this);
         this.agent.subscribe(this.$agentSubscription);
         if(this.getName() !== ADMIN_PIPE_NAME) {
@@ -72,17 +72,17 @@ export class Pipe extends Subscribable<any> {
     }
 
     //https://devcenter.heroku.com/articles/s3-upload-node
-    public getSignedRequest(file: File): Promise<void> {
+    public getSignedRequest(file: File, alsoUpload: boolean=false): Promise<{signedRequest: string, url: string}> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('GET', `/sign-s3?file-name=${file.name}&file-type=${file.type}`);
+            xhr.open('GET', `/sign-s3?file-name=${file.name}&file-type=${file.type}&apikey=${this.plumber.getAPIKey()}&pipe=${this.getName()}`);
             xhr.addEventListener('readystatechange', () => {
                 if(xhr.readyState === 4) {
                     if(xhr.status === 200) {
-                        const response = JSON.parse(xhr.responseText);
-                        Pipe.uploadFile(file, response.signedRequest, response.url);
+                        const response = JSON.parse(xhr.responseText) as { signedRequest: string, url: string};
+                        resolve(response);
                     } else{
-                        throw new Error('Could not get signed URL.');
+                        reject(new Error('Could not get signed URL.'));
                     }
                 }
             });
@@ -91,7 +91,7 @@ export class Pipe extends Subscribable<any> {
     }
 
     //https://devcenter.heroku.com/articles/s3-upload-node
-    private static uploadFile(file: File, signedRequest, url: string): Promise<string> {
+    public uploadFile(file: File, signedRequest: string, url: string): Promise<string> {
         return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', signedRequest);
@@ -100,7 +100,7 @@ export class Pipe extends Subscribable<any> {
                     if(xhr.status === 200) {
                         resolve(url);
                     } else {
-                        throw new Error('Could not upload file.');
+                        reject(new Error('Could not upload file.'));
                     }
                 }
             });
