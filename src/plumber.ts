@@ -1,4 +1,4 @@
-import { ADMIN_PIPE_NAME, DEFAULT_PIPE_NAME } from './constants';
+import { ADMIN_PIPE_NAME, DEFAULT_PIPE_NAME, PIPES_ADMIN_DOC_ID } from './constants';
 import { AdminPipe, Pipe } from './pipe';
 
 export interface PlumberConfig {
@@ -17,6 +17,9 @@ export class Plumber extends Pipe {
     public websocket: WebSocket|null = null;
     private readonly pipes: Map<string, Pipe> = new Map([ [ ADMIN_PIPE_NAME, new AdminPipe(ADMIN_PIPE_NAME, this) ] ]);
 
+    public readonly ADMIN_PIPE_NAME = ADMIN_PIPE_NAME;
+    public readonly DEFAULT_PIPE    = DEFAULT_PIPE_NAME;
+    public readonly ADMIN_DOC_ID    = PIPES_ADMIN_DOC_ID;
     public constructor() {
         super(DEFAULT_PIPE_NAME, null);
         this.pipes.set(DEFAULT_PIPE_NAME, this);
