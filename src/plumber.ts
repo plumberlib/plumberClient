@@ -30,8 +30,8 @@ export class Plumber extends Pipe {
     }
 
     public config(configOptions: PlumberConfig): Promise<void> {
-        Object.entries(configOptions).forEach(([key, value]) => {
-            this.configuration[key] = value;
+        Object.keys(configOptions).forEach((key) => {
+            this.configuration[key] = configOptions[key];
         });
 
         if(configOptions.hasOwnProperty('websocketURL')) {
@@ -42,7 +42,7 @@ export class Plumber extends Pipe {
         }
         if(configOptions.hasOwnProperty('apiKey')) {
             this._isAuthenticating = true;
-            return this.updateAPIKey().finally(() => {
+            return this.updateAPIKey().then(() => {
                 this._isAuthenticating = false;
             });
         }
