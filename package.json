@@ -1,8 +1,9 @@
 {
     "name": "plumber-client",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "",
-    "main": "built/plumber.js",
+    "main": "./built/plumber.js",
+    "types": "./built/plumber.d.ts",
     "scripts": {
         "start": "npx webpack --watch",
         "build": "npx webpack",
