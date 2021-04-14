@@ -14,6 +14,12 @@ enum PipeState {
     CLOSED     = 3  //WebSocket.CLOSED,
 };
 
+enum AuthState {
+    PENDING        = 0,
+    AUTHENTICATING = 1,
+    AUTHENTICATED  = 2
+}
+
 export class PipeAgent extends Subscribable<any> {
     private state: PipeState = PipeState.CONNECTING;
     private readonly authOperationQueue: PipeAction[] = [];
@@ -21,7 +27,8 @@ export class PipeAgent extends Subscribable<any> {
     private readonly awaitingResponse: Map<string, (err: any|null, response: any) => void> = new Map();
     private readonly shareDBMocket: Mocket;
     private sdbConnection: Connection;
-    private isAuthenticated: boolean = false;
+    private authenticationState: AuthState = AuthState.PENDING;
+    private setAPIKeyPromise: Promise<boolean>;
     private websocket: WebSocket;
     constructor(private readonly plumber: Plumber, private readonly pipe: Pipe) {
         super();
@@ -203,14 +210,20 @@ plumber.config({
     }
 
     public setAPIKey(key: string): Promise<boolean> {
-        return this.doCallMethod(SET_API_KEY_COMMAND, [key], true, true).then((success: boolean) => {
-            this.isAuthenticated = success;
-            if(!this.isAuthenticated) {
-                throw new Error(`Invalid Plumber API key "${key}". Please see ${this.plumber.getWebsocketURL().replace('ws://', 'http://').replace('wss://', 'https://')}`);
-            }
-            this.runOperationQueue();
-            return this.isAuthenticated;
-        });
+        if(this.authenticationState === AuthState.AUTHENTICATING) {
+            return this.setAPIKeyPromise;
+        } else {
+            this.authenticationState = AuthState.AUTHENTICATING;
+            return this.setAPIKeyPromise = this.doCallMethod(SET_API_KEY_COMMAND, [key], true, true).then((success: boolean) => {
+                if(success) {
+                    this.authenticationState = AuthState.AUTHENTICATED;
+                } else {
+                    throw new Error(`Invalid Plumber API key "${key}". Please see ${this.plumber.getWebsocketURL().replace('ws://', 'http://').replace('wss://', 'https://')}`);
+                }
+                this.runOperationQueue();
+                return this.authenticationState === AuthState.AUTHENTICATED;
+            });
+        }
     }
 
     public onAuthenticated(): void {

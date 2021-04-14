@@ -1,6 +1,6 @@
 {
     "name": "plumber-client",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "",
     "main": "built/plumber.js",
     "types": "built/plumber.d.ts",
